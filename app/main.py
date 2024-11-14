@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 import os
 import tiktoken
+from fastapi.responses import FileResponse
 
 load_dotenv()
 
@@ -24,6 +25,11 @@ app.add_middleware(
 
 # 静的ファイルの提供
 app.mount("/static", StaticFiles(directory="static"), name="static")
+
+# ルートパスでindex.htmlを提供
+@app.get("/")
+async def read_root():
+    return FileResponse('static/index.html')
 
 class MessageRequest(BaseModel):
     message: str
