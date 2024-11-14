@@ -121,15 +121,42 @@
             display: flex;
             flex-direction: column;
         }
+
+        .sidebar-header {
+            margin-bottom: 20px;
+        }
+
+        .new-chat-btn {
+            width: 100%;
+            padding: 10px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .new-chat-btn:hover {
+            background-color: #45a049;
+        }
+
+        .conversation-list-container {
+            margin-top: 20px;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="sidebar">
-            <h3>過去の会話</h3>
-            <ul class="conversation-list" id="conversation-list">
-                <!-- 会話リストがここに表示される -->
-            </ul>
+            <div class="sidebar-header">
+                <button onclick="startNewChat()" class="new-chat-btn">新しいチャット</button>
+            </div>
+            <div class="conversation-list-container">
+                <ul class="conversation-list" id="conversation-list">
+                    <!-- 会話リストがここに表示される -->
+                </ul>
+            </div>
         </div>
         
         <div class="chat-container">
@@ -332,7 +359,7 @@
                 addMessage('トークンがリセットされました。', 'bot');
             } catch (error) {
                 console.error('Error resetting tokens:', error);
-                addMessage('トークンのリセットに失敗しました。', 'bot');
+                addMessage('トークンのリセッ��に失敗しました。', 'bot');
             }
         }
 
@@ -378,6 +405,81 @@
         window.onload = function() {
             loadConversations();
         };
+
+        // 新しいチャットを開始する関数
+        async function startNewChat() {
+            // チャット画面をクリア
+            const chatMessages = document.getElementById('chat-messages');
+            chatMessages.innerHTML = '';
+            
+            // メッセージ入力欄をクリア
+            document.getElementById('message-input').value = '';
+            
+            // 新しい会話を作成
+            try {
+                const response = await fetch('/conversations/new', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        user_id: 'test_user'
+                    })
+                });
+                
+                if (response.ok) {
+                    // 会話リストを更新
+                    await loadConversations();
+                }
+            } catch (error) {
+                console.error('Error creating new conversation:', error);
+            }
+        }
+
+        // APIのベースURLを環境に応じて切り替え
+        const BASE_URL = window.location.hostname === 'localhost' 
+            ? 'http://localhost:8000'
+            : '';
+
+        // 既存のAPI呼び出しを修正
+        async function consumeTokens(message) {
+            try {
+                const response = await fetch(`${BASE_URL}/chat`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        message: message,
+                        user_id: 'test_user'
+                    })
+                });
+                
+                if (response.status === 403) {
+                    const errorData = await response.json();
+                    throw new Error('トークンが不足しています');
+                }
+                
+                if (!response.ok) {
+                    throw new Error('Token consumption failed');
+                }
+                
+                const data = await response.json();
+                
+                // トークン表示を更新
+                const tokenCountElement = document.getElementById('token-count');
+                if (tokenCountElement) {
+                    tokenCountElement.textContent = data.remaining_tokens;
+                }
+                
+                return data;
+            } catch (error) {
+                console.error('Error consuming tokens:', error);
+                throw error;
+            }
+        }
+
+        // 他のAPI呼び出しも同様に修正
     </script>
 </body>
 </html>

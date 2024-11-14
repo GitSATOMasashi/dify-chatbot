@@ -214,6 +214,21 @@ def save_message(request: MessageSave, db: Session = Depends(get_db)):
     
     return {"status": "success"}
 
+@app.post("/conversations/new")
+def create_new_conversation(request: dict, db: Session = Depends(get_db)):
+    """新しい会話を作成"""
+    conversation = database.Conversation(
+        user_id=request.get('user_id'),
+        title="新しいチャット"  # デフォルトタイトル
+    )
+    db.add(conversation)
+    db.commit()
+    
+    return {
+        "status": "success",
+        "conversation_id": conversation.id
+    }
+
 port = int(os.getenv("PORT", 8000))
 
 if __name__ == "__main__":
