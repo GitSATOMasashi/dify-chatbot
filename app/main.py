@@ -35,6 +35,12 @@ class MessageRequest(BaseModel):
     message: str
     user_id: str
 
+class MessageSave(BaseModel):
+    content: str
+    role: str
+    conversation_id: int
+    user_id: str
+
 def get_db():
     db = database.SessionLocal()
     try:
@@ -194,6 +200,19 @@ async def get_config():
     return {
         "api_key": os.getenv("DIFY_API_KEY")
     }
+
+@app.post("/messages")
+def save_message(request: MessageSave, db: Session = Depends(get_db)):
+    """メッセージを保存"""
+    message = database.Message(
+        conversation_id=request.conversation_id,
+        content=request.content,
+        role=request.role
+    )
+    db.add(message)
+    db.commit()
+    
+    return {"status": "success"}
 
 port = int(os.getenv("PORT", 8000))
 

@@ -164,7 +164,7 @@
         }
 
         // Dify APIを直接使用
-        async function sendToDify(message) {
+        async function sendToDify(message, conversationId) {
             try {
                 const response = await fetch('https://api.dify.ai/v1/chat-messages', {
                     method: 'POST',
@@ -182,10 +182,14 @@
                 });
 
                 const data = await response.json();
+                console.log('Dify response:', data);
                 
                 if (data.answer) {
                     // 応答を表示
                     addMessage(data.answer, 'bot');
+                    
+                    // 応答を保存
+                    await saveMessage(data.answer, 'bot', conversationId);
                     
                     // 応答のトークン数を記録
                     const tokenResponse = await fetch('/chat/response', {
@@ -200,14 +204,31 @@
                     });
                     
                     const tokenData = await tokenResponse.json();
-                    if (tokenData && tokenData.remaining_tokens) {
-                        // トークン表示を更新
-                        document.getElementById('token-count').textContent = tokenData.remaining_tokens;
-                    }
+                    document.getElementById('token-count').textContent = tokenData.remaining_tokens;
                 }
             } catch (error) {
                 console.error('Error calling Dify:', error);
                 addMessage('エラーが発生しました', 'system');
+            }
+        }
+
+        // メッセージを保存する関数を追加
+        async function saveMessage(content, role, conversationId) {
+            try {
+                await fetch('/messages', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        content: content,
+                        role: role,
+                        conversation_id: conversationId,
+                        user_id: 'test_user'
+                    })
+                });
+            } catch (error) {
+                console.error('Error saving message:', error);
             }
         }
 
@@ -228,24 +249,23 @@
             
             if (message) {
                 try {
-                    // UIにメッセージを追加
                     addMessage(message, 'user');
-                    
-                    // 入力欄をクリア
                     input.value = '';
                     
                     // トークンを消費
                     const tokenData = await consumeTokens(message);
+                    const conversationId = tokenData.conversation_id;  // 会話IDを取得
                     
-                    // Difyにメッセージを送信
-                    await sendToDify(message);
+                    // Difyにメッセージを送信（会話IDを渡す）
+                    await sendToDify(message, conversationId);
+                    
+                    // 会話リストを更新
+                    await loadConversations();
                     
                 } catch (error) {
                     console.error('Error:', error);
-                    input.value = '';  // エラー時も入力欄をクリア
-                    
-                    if (error.message === 'トークンが不足しています') {
-                        addMessage('トークンが不足しています。会話を続けるにはリセットしてください。', 'system');
+                    if (error.message.includes('トークンが不足')) {
+                        addMessage('トークンが不足しています。これ以上の会話はできません。', 'system');
                     } else {
                         addMessage('エラーが発生しました', 'system');
                     }
