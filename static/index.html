@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Custom Dify Chat</title>
+    <style>
+        .chat-container {
+            width: 400px;
+            height: 600px;
+            position: fixed;
+            bottom: 100px;
+            right: 20px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chat-messages {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding: 20px;
+        }
+
+        .chat-input {
+            padding: 20px;
+            border-top: 1px solid #eee;
+            display: flex;
+        }
+
+        .chat-input input {
+            flex-grow: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            margin-right: 10px;
+        }
+
+        .chat-input button {
+            padding: 10px 20px;
+            background: #1C64F2;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        #token-counter {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: white;
+            padding: 10px 15px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            font-size: 14px;
+            color: #333;
+        }
+
+        .message {
+            margin-bottom: 10px;
+            padding: 10px;
+            border-radius: 5px;
+        }
+
+        .user-message {
+            background: #E3F2FD;
+            margin-left: 20%;
+        }
+
+        .bot-message {
+            background: #F5F5F5;
+            margin-right: 20%;
+        }
+
+        .reset-button {
+            margin-left: 10px;
+            padding: 5px 10px;
+            background: #1C64F2;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        .reset-button:hover {
+            background: #1555d6;
+        }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <div class="chat-messages" id="chat-messages">
+            <!-- メッセージがここに追加されます -->
+        </div>
+        <div class="chat-input">
+            <input type="text" id="message-input" placeholder="メッセージを入力...">
+            <button onclick="sendMessage()">送信</button>
+        </div>
+    </div>
+
+    <div id="token-counter">
+        残りトークン: <span id="token-count">200</span>
+        <button onclick="resetTokens()" class="reset-button">リセット</button>
+    </div>
+
+    <script>
+        let apiKey = '';  // APIキーを保持する変数
+
+        // 初期化時にAPIキーを取得
+        async function initialize() {
+            try {
+                const response = await fetch('http://localhost:8000/api/config');
+                const config = await response.json();
+                apiKey = config.api_key;
+                console.log('API key loaded');
+            } catch (error) {
+                console.error('Error loading config:', error);
+            }
+        }
+
+        // Dify APIを直接使用
+        async function sendToDify(message) {
+            try {
+                const response = await fetch('https://api.dify.ai/v1/chat-messages', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${apiKey}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        inputs: {},
+                        query: message,
+                        user: "test_user",
+                        response_mode: "blocking",
+                        conversation_id: null
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (data.answer) {
+                    // 応答を表示
+                    addMessage(data.answer, 'bot');
+                    
+                    // 応答のトークン数を記録
+                    const tokenResponse = await fetch('http://localhost:8000/chat/response', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            response: data.answer,
+                            user_id: 'test_user'
+                        })
+                    });
+                    
+                    const tokenData = await tokenResponse.json();
+                    if (tokenData && tokenData.remaining_tokens) {
+                        // トークン表示を更新
+                        document.getElementById('token-count').textContent = tokenData.remaining_tokens;
+                    }
+                }
+            } catch (error) {
+                console.error('Error calling Dify:', error);
+                addMessage('エラーが発生しました', 'system');
+            }
+        }
+
+        // メッセージの追加
+        function addMessage(content, type) {
+            const messagesDiv = document.getElementById('chat-messages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${type}-message`;
+            messageDiv.textContent = content;
+            messagesDiv.appendChild(messageDiv);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+        // メッセージ送信
+        async function sendMessage() {
+            const input = document.getElementById('message-input');
+            const message = input.value.trim();
+            
+            if (message) {
+                try {
+                    // UIにメッセージを追加
+                    addMessage(message, 'user');
+                    
+                    // 入力欄をクリア
+                    input.value = '';
+                    
+                    // トークンを消費
+                    const tokenData = await consumeTokens(message);
+                    
+                    // Difyにメッセージを送信
+                    await sendToDify(message);
+                    
+                } catch (error) {
+                    console.error('Error:', error);
+                    input.value = '';  // エラー時も入力欄をクリア
+                    
+                    if (error.message === 'トークンが不足しています') {
+                        addMessage('トークンが不足しています。会話を続けるにはリセットしてください。', 'system');
+                    } else {
+                        addMessage('エラーが発生しました', 'system');
+                    }
+                }
+            }
+        }
+
+        // トークン消費
+        async function consumeTokens(message) {
+            try {
+                const response = await fetch('http://localhost:8000/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        message: message,
+                        user_id: 'test_user'
+                    })
+                });
+                
+                if (response.status === 403) {
+                    const errorData = await response.json();
+                    throw new Error('トークンが不足しています');
+                }
+                
+                if (!response.ok) {
+                    throw new Error('Token consumption failed');
+                }
+                
+                const data = await response.json();
+                
+                // トークン表示を更新
+                const tokenCountElement = document.getElementById('token-count');
+                if (tokenCountElement) {
+                    tokenCountElement.textContent = data.remaining_tokens;
+                }
+                
+                return data;
+            } catch (error) {
+                console.error('Error consuming tokens:', error);
+                throw error;
+            }
+        }
+
+        // Enter キーでメッセージを送信
+        document.getElementById('message-input').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+
+        // 初期化を実行
+        initialize();
+
+        // リセット機能を追加
+        async function resetTokens() {
+            try {
+                const response = await fetch(`http://localhost:8000/tokens/reset/test_user`, {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                document.getElementById('token-count').textContent = data.remaining_tokens;
+                addMessage('トークンがリセットされました。', 'bot');
+            } catch (error) {
+                console.error('Error resetting tokens:', error);
+                addMessage('トークンのリセットに失敗しました。', 'bot');
+            }
+        }
+    </script>
+</body>
+</html>
