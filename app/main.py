@@ -139,3 +139,9 @@ async def get_config():
     return {
         "api_key": os.getenv("DIFY_API_KEY")
     }
+
+port = int(os.getenv("PORT", 8000))
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=port)
