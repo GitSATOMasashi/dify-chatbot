@@ -61,6 +61,32 @@ def get_tokens(user_id: str, db: Session = Depends(get_db)):
     
     return {"remaining_tokens": usage.remaining_tokens}
 
+@app.get("/conversations/{user_id}")
+def get_conversations(user_id: str, db: Session = Depends(get_db)):
+    """ユーザーの全会話履歴を取得"""
+    conversations = db.query(database.Conversation).filter(
+        database.Conversation.user_id == user_id
+    ).order_by(database.Conversation.created_at.desc()).all()
+    
+    return [{
+        "id": conv.id,
+        "title": conv.title,
+        "created_at": conv.created_at
+    } for conv in conversations]
+
+@app.get("/conversations/{conversation_id}/messages")
+def get_messages(conversation_id: int, db: Session = Depends(get_db)):
+    """特定の会話のメッセージを取得"""
+    messages = db.query(database.Message).filter(
+        database.Message.conversation_id == conversation_id
+    ).order_by(database.Message.created_at).all()
+    
+    return [{
+        "content": msg.content,
+        "role": msg.role,
+        "created_at": msg.created_at
+    } for msg in messages]
+
 @app.post("/chat")
 def send_message(request: MessageRequest, db: Session = Depends(get_db)):
     # 入力のトークン数を計算
@@ -89,10 +115,33 @@ def send_message(request: MessageRequest, db: Session = Depends(get_db)):
     usage.remaining_tokens -= input_tokens
     db.commit()
     
+    # 新しい会話を作成または既存の会話を取得
+    conversation = db.query(database.Conversation).filter(
+        database.Conversation.user_id == request.user_id
+    ).order_by(database.Conversation.created_at.desc()).first()
+    
+    if not conversation:
+        conversation = database.Conversation(
+            user_id=request.user_id,
+            title=request.message[:30] + "..."  # 最初のメッセージの一部をタイトルに
+        )
+        db.add(conversation)
+        db.commit()
+    
+    # メッセージを保存
+    message = database.Message(
+        conversation_id=conversation.id,
+        content=request.message,
+        role="user"
+    )
+    db.add(message)
+    db.commit()
+    
     return {
         "status": "success",
         "remaining_tokens": usage.remaining_tokens,
-        "input_tokens": input_tokens
+        "input_tokens": input_tokens,
+        "conversation_id": conversation.id
     }
 
 @app.post("/chat/response")
