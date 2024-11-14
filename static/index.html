@@ -110,7 +110,7 @@
         // 初期化時にAPIキーを取得
         async function initialize() {
             try {
-                const response = await fetch('http://localhost:8000/api/config');
+                const response = await fetch('/api/config');
                 const config = await response.json();
                 apiKey = config.api_key;
                 console.log('API key loaded');
@@ -144,7 +144,7 @@
                     addMessage(data.answer, 'bot');
                     
                     // 応答のトークン数を記録
-                    const tokenResponse = await fetch('http://localhost:8000/chat/response', {
+                    const tokenResponse = await fetch('/chat/response', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -212,7 +212,7 @@
         // トークン消費
         async function consumeTokens(message) {
             try {
-                const response = await fetch('http://localhost:8000/chat', {
+                const response = await fetch('/chat', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -260,7 +260,7 @@
         // リセット機能を追加
         async function resetTokens() {
             try {
-                const response = await fetch(`http://localhost:8000/tokens/reset/test_user`, {
+                const response = await fetch('/tokens/reset/test_user', {
                     method: 'POST'
                 });
                 const data = await response.json();
