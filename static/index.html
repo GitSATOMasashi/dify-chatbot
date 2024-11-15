@@ -300,18 +300,37 @@
                 
                 list.innerHTML = '';
                 
+                // ピン留めされた会話用のセクション
+                const pinnedSection = document.createElement('div');
+                pinnedSection.className = 'pinned-section';
+                
+                // 通常の会話用のセクション
+                const normalSection = document.createElement('div');
+                normalSection.className = 'normal-section';
+                
+                // セクションヘッダーの追加
+                const pinnedConversations = conversations.filter(conv => conv.is_pinned);
+                if (pinnedConversations.length > 0) {
+                    pinnedSection.innerHTML = '<div class="section-header">ピン留めしたトーク</div>';
+                }
+                normalSection.innerHTML = '<div class="section-header">すべてのトーク</div>';
+                
                 conversations.forEach(conv => {
                     const li = document.createElement('li');
                     li.className = 'conversation-item';
-                    if (conv.id.toString() === activeId) {
-                        li.classList.add('active');  // アクティブ状態を復元
-                    }
+                    
+                    // HTMLの構造を修正
                     li.innerHTML = `
-                        <div class="conversation-item" data-id="${conv.id}">
+                        <div class="conversation-title-container">
                             <span class="conversation-title">${conv.title}</span>
-                            <button class="more-options-btn" onclick="event.stopPropagation()">⋯</button>
+                        </div>
+                        <div class="conversation-actions">
+                            <button class="more-options-btn">⋯</button>
                             <div class="options-menu hidden">
                                 <div class="option-item edit-title">タイトルを編集</div>
+                                <div class="option-item toggle-pin">
+                                    ${conv.is_pinned ? 'ピン留めを解除' : 'ピン留め'}
+                                </div>
                                 <div class="option-item delete-conv">削除</div>
                             </div>
                         </div>
@@ -338,7 +357,7 @@
                         });
                     });
 
-                    // 「...」ボタンのクリックイベントを修正
+                    // 「...」ボタンのクリックイベント
                     const moreButton = li.querySelector('.more-options-btn');
                     moreButton.addEventListener('click', (e) => {
                         e.stopPropagation();  // イベントの伝播を停止
@@ -382,8 +401,54 @@
                         li.querySelector('.options-menu').classList.add('hidden');
                     });
 
-                    list.appendChild(li);
+                    // ピン留めトグルのイベントリスナー
+                    const pinButton = li.querySelector('.toggle-pin');
+                    if (pinButton) {  // nullチェックを追加
+                        pinButton.addEventListener('click', async (e) => {
+                            e.preventDefault();  // デフォルトの動作を防ぐ
+                            e.stopPropagation(); // イベントの伝播を停止
+                            
+                            console.log('Pin button clicked'); // デバッグ用
+                            
+                            try {
+                                const response = await fetch(`/conversations/${conv.id}/pin`, {
+                                    method: 'PUT',
+                                    headers: {
+                                        'Content-Type': 'application/json'
+                                    }
+                                });
+                                
+                                if (response.ok) {
+                                    console.log('Pin toggle successful'); // デバッグ用
+                                    // 成功したら即座にUIを更新
+                                    await loadConversations();
+                                } else {
+                                    console.error('Failed to toggle pin');
+                                }
+                            } catch (error) {
+                                console.error('Error toggling pin:', error);
+                            }
+                            
+                            // メニューを閉じる
+                            const menu = li.querySelector('.options-menu');
+                            if (menu) {
+                                menu.classList.add('hidden');
+                            }
+                        });
+                    }
+                    
+                    // 適切なセクションに追加
+                    if (conv.is_pinned) {
+                        pinnedSection.appendChild(li);
+                    } else {
+                        normalSection.appendChild(li);
+                    }
                 });
+                
+                // セクションをリストに追加
+                list.appendChild(pinnedSection);
+                list.appendChild(normalSection);
+                
             } catch (error) {
                 console.error('Error loading conversations:', error);
             }

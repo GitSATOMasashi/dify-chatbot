@@ -1,15 +1,41 @@
-from sqlalchemy import create_engine, Column, Integer, String, DateTime, Text, ForeignKey
+from sqlalchemy import Column, Integer, String, DateTime, Boolean
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, relationship
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy import create_engine
 from datetime import datetime
 
-# データベース設定
-SQLALCHEMY_DATABASE_URL = "sqlite:///./tokens.db"
-engine = create_engine(SQLALCHEMY_DATABASE_URL)
+# データベースのURL
+SQLALCHEMY_DATABASE_URL = "sqlite:///./test.db"
+
+# エンジンの作成
+engine = create_engine(
+    SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
+)
+
+# セッションの作成
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+# Baseクラスの作成
 Base = declarative_base()
 
-# トークン管理用のモデル
+class Conversation(Base):
+    __tablename__ = "conversations"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(String)
+    title = Column(String)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    is_pinned = Column(Boolean, default=False)
+
+class Message(Base):
+    __tablename__ = "messages"
+
+    id = Column(Integer, primary_key=True, index=True)
+    conversation_id = Column(Integer)
+    content = Column(String)
+    role = Column(String)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
 class TokenUsage(Base):
     __tablename__ = "token_usage"
 
@@ -18,23 +44,10 @@ class TokenUsage(Base):
     remaining_tokens = Column(Integer, default=200)
     last_updated = Column(DateTime, default=datetime.utcnow)
 
-# 新しく追加するモデル
-class Conversation(Base):
-    __tablename__ = "conversations"
-    id = Column(Integer, primary_key=True, index=True)
-    title = Column(String)  # 会話のタイトル（最初のメッセージの一部を使用）
-    user_id = Column(String, index=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    messages = relationship("Message", back_populates="conversation")
-
-class Message(Base):
-    __tablename__ = "messages"
-    id = Column(Integer, primary_key=True, index=True)
-    conversation_id = Column(Integer, ForeignKey("conversations.id"))
-    content = Column(Text)
-    role = Column(String)  # 'user' または 'bot'
-    created_at = Column(DateTime, default=datetime.utcnow)
-    conversation = relationship("Conversation", back_populates="messages")
-
-# データベース作成
-Base.metadata.create_all(bind=engine) 
+# データベース接続のための依存関数
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close() 

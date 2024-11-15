@@ -77,12 +77,16 @@ def get_conversations(user_id: str, db: Session = Depends(get_db)):
     """ユーザーの全会話履歴を取得"""
     conversations = db.query(database.Conversation).filter(
         database.Conversation.user_id == user_id
-    ).order_by(database.Conversation.created_at.desc()).all()
+    ).order_by(
+        database.Conversation.is_pinned.desc(),  # ピン留めを優先
+        database.Conversation.created_at.desc()
+    ).all()
     
     return [{
         "id": conv.id,
         "title": conv.title,
-        "created_at": conv.created_at
+        "created_at": conv.created_at,
+        "is_pinned": conv.is_pinned
     } for conv in conversations]
 
 @app.get("/conversations/{conversation_id}/messages")
@@ -304,6 +308,30 @@ def delete_conversation(conversation_id: int, db: Session = Depends(get_db)):
     except SQLAlchemyError as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
+@app.put("/conversations/{conversation_id}/pin")
+async def toggle_pin(conversation_id: int, db: Session = Depends(get_db)):
+    try:
+        conversation = db.query(database.Conversation).filter(
+            database.Conversation.id == conversation_id
+        ).first()
+        
+        if not conversation:
+            raise HTTPException(status_code=404, detail="Conversation not found")
+        
+        # ピン留め状態を切り替え
+        conversation.is_pinned = not conversation.is_pinned
+        db.commit()
+        
+        return {
+            "status": "success",
+            "is_pinned": conversation.is_pinned
+        }
+            
+    except Exception as e:
+        db.rollback()
+        print(f"Error in toggle_pin: {str(e)}")  # デバッグ用
+        raise HTTPException(status_code=500, detail=str(e))
 
 port = int(os.getenv("PORT", 8000))
 
