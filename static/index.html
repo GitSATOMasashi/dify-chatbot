@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Custom Dify Chat</title>
+    <title>AIアシスタント - スキルプラス</title>
     <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
@@ -310,7 +310,7 @@
                 
                 // セクションヘッダーの追加
                 const pinnedConversations = conversations.filter(conv => conv.is_pinned);
-                if (pinnedConversations.length > 0) {
+                if (pinnedConversations && pinnedConversations.length > 0) {
                     pinnedSection.innerHTML = '<div class="section-header">ピン留めしたトーク</div>';
                 }
                 normalSection.innerHTML = '<div class="section-header">すべてのトーク</div>';
