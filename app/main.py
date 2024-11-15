@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.asyncio import create_async_engine
 import logging
+from typing import Optional
 
 load_dotenv()
 
@@ -40,7 +41,7 @@ async def read_root():
 class MessageRequest(BaseModel):
     user_id: str
     message: str
-    conversation_id: int | None = None
+    conversation_id: Optional[int] = None
 
 class MessageSave(BaseModel):
     content: str
