@@ -288,10 +288,35 @@
                         loadMessages(conv.id);
                     });
 
-                    // ボタンのクリックイベント
+                    // ドキュメント全体のクリックイベントを追加
+                    document.addEventListener('click', function(e) {
+                        // 開いているすべてのオプションメニューを取得
+                        const openMenus = document.querySelectorAll('.options-menu:not(.hidden)');
+                        
+                        openMenus.forEach(menu => {
+                            // クリックされた要素がメニュー自体でも、メニューの中の要素でも、
+                            // 「...」ボタンでもない場合はメニューを閉じる
+                            if (!menu.contains(e.target) && 
+                                !e.target.classList.contains('more-options-btn') && 
+                                !e.target.closest('.more-options-btn')) {
+                                menu.classList.add('hidden');
+                            }
+                        });
+                    });
+
+                    // 「...」ボタンのクリックイベントを修正
                     const moreButton = li.querySelector('.more-options-btn');
                     moreButton.addEventListener('click', (e) => {
-                        e.stopPropagation();  // 親要素へのイベント伝播を停止
+                        e.stopPropagation();  // イベントの伝播を停止
+                        
+                        // 他の開いているメニューをすべて閉じる
+                        document.querySelectorAll('.options-menu:not(.hidden)').forEach(menu => {
+                            if (menu !== e.target.nextElementSibling) {
+                                menu.classList.add('hidden');
+                            }
+                        });
+                        
+                        // クリックされたボタンに対応するメニューをトグル
                         const menu = li.querySelector('.options-menu');
                         menu.classList.toggle('hidden');
                     });
