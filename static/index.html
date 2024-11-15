@@ -27,7 +27,7 @@
                 <button class="reset-button" onclick="resetTokens()">リセット</button>
             </div>
             <div class="chat-input">
-                <input type="text" id="message-input" placeholder="メッセージを入力...(Shift + Enter で送信)">
+                <textarea id="message-input" placeholder="メッセージを入力...(Shift + Enter で送信)" rows="1"></textarea>
                 <button onclick="sendMessage()">送信</button>
             </div>
         </div>
@@ -165,6 +165,11 @@
                     // 会話リストを更新
                     await loadConversations();
                     
+                    // 入力欄をクリアして高さもリセット
+                    const textarea = document.getElementById('message-input');
+                    textarea.value = '';
+                    textarea.style.height = 'auto';
+                    
                 } catch (error) {
                     console.error('Error:', error);
                     if (error.message.includes('トークンが不足')) {
@@ -221,9 +226,14 @@
                 e.preventDefault();  // デフォルトの改行を防ぐ
                 document.querySelector('.chat-input button').click();  // 送信ボタンをクリック
             }
-            // Enter のみの場合
+            // Enter のみの場合は改行を許可
             else if (e.key === 'Enter') {
-                e.preventDefault();  // デフォルトの送信を防ぐ
+                // デフォルトの動作を許可（改行）
+                // 高さを自動調整
+                setTimeout(() => {
+                    this.style.height = 'auto';
+                    this.style.height = (this.scrollHeight) + 'px';
+                }, 0);
             }
         });
 
@@ -516,6 +526,14 @@ ${message}
                 console.error('Error deleting conversation:', error);
             }
         }
+
+        // テキストエリアの自動拡張
+        document.getElementById('message-input').addEventListener('input', function(e) {
+            // 高さをリセット
+            this.style.height = 'auto';
+            // スクロールの高さに合わせて高さを設定
+            this.style.height = (this.scrollHeight) + 'px';
+        });
     </script>
 </body>
 </html>

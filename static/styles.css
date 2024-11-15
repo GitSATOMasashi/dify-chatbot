@@ -167,17 +167,25 @@ body {
 
 /* チャット入力 */
 .chat-input {
-    padding: 20px;
-    border-top: 1px solid #eee;
     display: flex;
-    gap: 10px;
+    padding: 10px;
+    border-top: 1px solid #ddd;
+    background: white;
+    align-items: flex-end;  /* 送信ボタンを下端に合わせる */
 }
 
-.chat-input input {
+.chat-input textarea {
     flex-grow: 1;
-    padding: 10px;
+    margin-right: 10px;
+    padding: 8px;
     border: 1px solid #ddd;
-    border-radius: 5px;
+    border-radius: 4px;
+    font-size: 14px;
+    min-height: 20px;
+    max-height: 150px;  /* 最大の高さを制限 */
+    resize: none;  /* 手動リサイズを無効化 */
+    line-height: 1.5;
+    overflow-y: hidden;  /* スクロールバーを隠す */
 }
 
 .chat-input button {
