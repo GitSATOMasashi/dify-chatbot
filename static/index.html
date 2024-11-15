@@ -127,7 +127,31 @@
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
         }
 
-        // メッセージ送信
+        // ローディングインジケータを表示する関数
+        function showTypingIndicator() {
+            const chatMessages = document.getElementById('chat-messages');
+            const indicator = document.createElement('div');
+            indicator.className = 'message assistant typing-indicator-container';
+            indicator.innerHTML = `
+                <div class="typing-indicator">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </div>
+            `;
+            chatMessages.appendChild(indicator);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        // ローディングインジケータを削除する関数
+        function removeTypingIndicator() {
+            const indicator = document.querySelector('.typing-indicator-container');
+            if (indicator) {
+                indicator.remove();
+            }
+        }
+
+        // メッセージ送信関数を修正
         async function sendMessage() {
             const input = document.getElementById('message-input');
             const message = input.value.trim();
@@ -136,6 +160,10 @@
                 try {
                     addMessage(message, 'user');
                     input.value = '';
+                    input.style.height = 'auto';
+                    
+                    // ローディングインジケータを表示
+                    showTypingIndicator();
                     
                     // トークンを消費
                     const tokenData = await consumeTokens(message);
@@ -162,6 +190,9 @@
                     // Difyにメッセージを送信
                     await sendToDify(message, conversationId);
                     
+                    // ローディングインジケータを削除
+                    removeTypingIndicator();
+                    
                     // 会話リストを更新
                     await loadConversations();
                     
@@ -171,6 +202,9 @@
                     textarea.style.height = 'auto';
                     
                 } catch (error) {
+                    // ローディングインジケータを削除
+                    removeTypingIndicator();
+                    
                     console.error('Error:', error);
                     if (error.message.includes('トークンが不足')) {
                         addMessage('トークンが不足しています。これ以上の会話はできません。', 'system');
