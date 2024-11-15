@@ -38,8 +38,9 @@ async def read_root():
     return FileResponse('static/index.html')
 
 class MessageRequest(BaseModel):
-    message: str
     user_id: str
+    message: str
+    conversation_id: int | None = None
 
 class MessageSave(BaseModel):
     content: str
@@ -55,9 +56,12 @@ def get_db():
         db.close()
 
 def count_tokens(text: str) -> int:
-    """tiktokenを使用して正確なトークン数を計算"""
-    encoding = tiktoken.get_encoding("cl100k_base")
-    return len(encoding.encode(text))
+    try:
+        encoding = tiktoken.get_encoding("cl100k_base")
+        return len(encoding.encode(text))
+    except Exception as e:
+        logger.error(f"Error counting tokens: {str(e)}")
+        return len(text) // 4  # フォールバック：簡易的な推定
 
 # ログ設定
 logging.basicConfig(level=logging.INFO)
@@ -70,33 +74,44 @@ def get_remaining_tokens(user_id: str, db: Session = Depends(get_db)):
             database.TokenUsage.user_id == user_id
         ).first()
         
+        logger.info(f"Token check for user {user_id}: {token_usage}")
+        
         if not token_usage:
+            # 新規ユーザーの場合は初期トークンを設定
             token_usage = database.TokenUsage(user_id=user_id)
             db.add(token_usage)
             db.commit()
             db.refresh(token_usage)
+            logger.info(f"Created new token usage for user {user_id}")
         
         return {"remaining_tokens": token_usage.remaining_tokens}
+        
     except Exception as e:
         logger.error(f"Error in get_remaining_tokens: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/conversations/{user_id}")
 def get_conversations(user_id: str, db: Session = Depends(get_db)):
-    """ユーザーの全会話履歴を取得"""
-    conversations = db.query(database.Conversation).filter(
-        database.Conversation.user_id == user_id
-    ).order_by(
-        database.Conversation.is_pinned.desc(),  # ピン留めを優先
-        database.Conversation.created_at.desc()
-    ).all()
-    
-    return [{
-        "id": conv.id,
-        "title": conv.title,
-        "created_at": conv.created_at,
-        "is_pinned": conv.is_pinned
-    } for conv in conversations]
+    try:
+        conversations = db.query(database.Conversation).filter(
+            database.Conversation.user_id == user_id
+        ).order_by(
+            database.Conversation.is_pinned.desc(),  # ピン留めを優先
+            database.Conversation.created_at.desc()
+        ).all()
+        
+        logger.info(f"Found {len(conversations)} conversations for user {user_id}")
+        
+        return [{
+            "id": conv.id,
+            "title": conv.title,
+            "created_at": conv.created_at,
+            "is_pinned": conv.is_pinned
+        } for conv in conversations]
+        
+    except Exception as e:
+        logger.error(f"Error in get_conversations: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/conversations/{conversation_id}/messages")
 def get_messages(conversation_id: int, db: Session = Depends(get_db)):
@@ -112,61 +127,76 @@ def get_messages(conversation_id: int, db: Session = Depends(get_db)):
     } for msg in messages]
 
 @app.post("/chat")
-def send_message(request: MessageRequest, db: Session = Depends(get_db)):
-    # 入力のトークン数を計算
-    input_tokens = count_tokens(request.message)
-    estimated_response_tokens = input_tokens * 2  # 初期見積もり
-    required_tokens = input_tokens + estimated_response_tokens
-    
-    usage = db.query(database.TokenUsage).filter(
-        database.TokenUsage.user_id == request.user_id
-    ).first()
-    
-    if not usage:
-        usage = database.TokenUsage(user_id=request.user_id, remaining_tokens=200)
-        db.add(usage)
-        db.commit()
-        db.refresh(usage)
-    
-    # 必要なトークン数をチェック
-    if usage.remaining_tokens < required_tokens:
-        raise HTTPException(
-            status_code=403, 
-            detail="トークンが不足しています"
+async def chat(request: Request, db: Session = Depends(get_db)):
+    try:
+        data = await request.json()
+        message_request = MessageRequest(
+            user_id=data.get("user_id", "test_user"),
+            message=data.get("message", ""),
+            conversation_id=data.get("conversation_id")
         )
-    
-    # 入力トークのみ先に消費
-    usage.remaining_tokens -= input_tokens
-    db.commit()
-    
-    # 新しい会話を作成また既存の会話を取得
-    conversation = db.query(database.Conversation).filter(
-        database.Conversation.user_id == request.user_id
-    ).order_by(database.Conversation.created_at.desc()).first()
-    
-    if not conversation:
-        conversation = database.Conversation(
-            user_id=request.user_id,
-            title=request.message[:30] + "..."  # 最初のメッセージの一部をタイトルに
-        )
-        db.add(conversation)
+        
+        logger.info(f"Processing chat request for user {message_request.user_id}")
+        
+        # 入力のトークン数を計算
+        input_tokens = count_tokens(message_request.message)
+        estimated_response_tokens = input_tokens * 2  # 初期見積もり
+        required_tokens = input_tokens + estimated_response_tokens
+        
+        # トークン使用量をチェック
+        usage = db.query(database.TokenUsage).filter(
+            database.TokenUsage.user_id == message_request.user_id
+        ).first()
+        
+        if not usage:
+            usage = database.TokenUsage(user_id=message_request.user_id, remaining_tokens=200)
+            db.add(usage)
+            db.commit()
+            db.refresh(usage)
+        
+        # 必要なトークン数をチェック
+        if usage.remaining_tokens < required_tokens:
+            logger.warning(f"Insufficient tokens for user {message_request.user_id}")
+            raise HTTPException(status_code=403, detail="トークンが不足しています")
+        
+        # トークンを消費
+        usage.remaining_tokens -= input_tokens
         db.commit()
-    
-    # メッセージを保存
-    message = database.Message(
-        conversation_id=conversation.id,
-        content=request.message,
-        role="user"
-    )
-    db.add(message)
-    db.commit()
-    
-    return {
-        "status": "success",
-        "remaining_tokens": usage.remaining_tokens,
-        "input_tokens": input_tokens,
-        "conversation_id": conversation.id
-    }
+        
+        # 会話を取得または作成
+        conversation = db.query(database.Conversation).filter(
+            database.Conversation.user_id == message_request.user_id
+        ).order_by(database.Conversation.created_at.desc()).first()
+        
+        if not conversation:
+            conversation = database.Conversation(
+                user_id=message_request.user_id,
+                title=message_request.message[:30] + "..."
+            )
+            db.add(conversation)
+            db.commit()
+        
+        # メッセージを保存
+        message = database.Message(
+            conversation_id=conversation.id,
+            content=message_request.message,
+            role="user"
+        )
+        db.add(message)
+        db.commit()
+        
+        logger.info(f"Successfully processed message for conversation {conversation.id}")
+        
+        return {
+            "status": "success",
+            "remaining_tokens": usage.remaining_tokens,
+            "input_tokens": input_tokens,
+            "conversation_id": conversation.id
+        }
+        
+    except Exception as e:
+        logger.error(f"Error in chat endpoint: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/chat/response")
 async def record_response(
@@ -341,7 +371,6 @@ async def toggle_pin(conversation_id: int, db: Session = Depends(get_db)):
         db.rollback()
         print(f"Error in toggle_pin: {str(e)}")  # デバッグ用
         raise HTTPException(status_code=500, detail=str(e))
-
 port = int(os.getenv("PORT", 8000))
 
 # データベースの設定
