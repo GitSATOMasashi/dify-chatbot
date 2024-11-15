@@ -27,7 +27,7 @@
                 <button class="reset-button" onclick="resetTokens()">リセット</button>
             </div>
             <div class="chat-input">
-                <input type="text" id="message-input" placeholder="メッセージを入力...">
+                <input type="text" id="message-input" placeholder="メッセージを入力...(Shift + Enter で送信)">
                 <button onclick="sendMessage()">送信</button>
             </div>
         </div>
@@ -214,10 +214,16 @@
             }
         }
 
-        // Enter キーでメッセージを送信
-        document.getElementById('message-input').addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                sendMessage();
+        // メッセージ入力欄のイベントリスナーを追加
+        document.getElementById('message-input').addEventListener('keydown', function(e) {
+            // Shift + Enter が押された場合
+            if (e.key === 'Enter' && e.shiftKey) {
+                e.preventDefault();  // デフォルトの改行を防ぐ
+                document.querySelector('.chat-input button').click();  // 送信ボタンをクリック
+            }
+            // Enter のみの場合
+            else if (e.key === 'Enter') {
+                e.preventDefault();  // デフォルトの送信を防ぐ
             }
         });
 
