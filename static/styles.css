@@ -360,11 +360,6 @@ button,
     transition: all 0.2s ease;
 }
 
-/* ピン留めされた会話のスタイル */
-.conversation-item[data-pinned="true"] {
-
-}
-
 .conversation-item[data-pinned="true"]:hover {
     transform: translateX(3px);
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
