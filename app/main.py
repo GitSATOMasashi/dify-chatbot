@@ -14,6 +14,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.asyncio import create_async_engine
+import logging
 
 load_dotenv()
 
@@ -58,19 +59,27 @@ def count_tokens(text: str) -> int:
     encoding = tiktoken.get_encoding("cl100k_base")
     return len(encoding.encode(text))
 
+# ログ設定
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 @app.get("/tokens/{user_id}")
-def get_tokens(user_id: str, db: Session = Depends(get_db)):
-    usage = db.query(database.TokenUsage).filter(
-        database.TokenUsage.user_id == user_id
-    ).first()
-    
-    if not usage:
-        usage = database.TokenUsage(user_id=user_id, remaining_tokens=200)
-        db.add(usage)
-        db.commit()
-        db.refresh(usage)
-    
-    return {"remaining_tokens": usage.remaining_tokens}
+def get_remaining_tokens(user_id: str, db: Session = Depends(get_db)):
+    try:
+        token_usage = db.query(database.TokenUsage).filter(
+            database.TokenUsage.user_id == user_id
+        ).first()
+        
+        if not token_usage:
+            token_usage = database.TokenUsage(user_id=user_id)
+            db.add(token_usage)
+            db.commit()
+            db.refresh(token_usage)
+        
+        return {"remaining_tokens": token_usage.remaining_tokens}
+    except Exception as e:
+        logger.error(f"Error in get_remaining_tokens: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/conversations/{user_id}")
 def get_conversations(user_id: str, db: Session = Depends(get_db)):
