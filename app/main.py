@@ -279,6 +279,32 @@ def update_conversation_title(
         print(f"Unexpected error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Unexpected error: {str(e)}")
 
+@app.delete("/conversations/{conversation_id}")
+def delete_conversation(conversation_id: int, db: Session = Depends(get_db)):
+    try:
+        # 会話を取得
+        conversation = db.query(database.Conversation).filter(
+            database.Conversation.id == conversation_id
+        ).first()
+        
+        if not conversation:
+            raise HTTPException(status_code=404, detail="Conversation not found")
+        
+        # 関連するメッセージも削除
+        db.query(database.Message).filter(
+            database.Message.conversation_id == conversation_id
+        ).delete()
+        
+        # 会話を削除
+        db.delete(conversation)
+        db.commit()
+        
+        return {"status": "success"}
+            
+    except SQLAlchemyError as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
 port = int(os.getenv("PORT", 8000))
 
 # データベースの設定

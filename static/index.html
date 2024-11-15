@@ -254,18 +254,83 @@
                     li.innerHTML = `
                         <div class="conversation-item" data-id="${conv.id}">
                             <span class="conversation-title">${conv.title}</span>
-                            <button class="more-options-btn">⋯</button>
+                            <button class="more-options-btn" onclick="event.stopPropagation()">⋯</button>
                             <div class="options-menu hidden">
                                 <div class="option-item edit-title">タイトルを編集</div>
                                 <div class="option-item delete-conv">削除</div>
                             </div>
                         </div>
                     `;
-                    li.onclick = () => loadMessages(conv.id);
+                    
+                    // 会話アイテムのクリックイベント
+                    li.querySelector('.conversation-title').addEventListener('click', () => {
+                        loadMessages(conv.id);
+                    });
+
+                    // ボタンのクリックイベント
+                    const moreButton = li.querySelector('.more-options-btn');
+                    moreButton.addEventListener('click', (e) => {
+                        e.stopPropagation();  // 親要素へのイベント伝播を停止
+                        const menu = li.querySelector('.options-menu');
+                        menu.classList.toggle('hidden');
+                    });
+
+                    // タイトル編集のクリックイベント
+                    const editButton = li.querySelector('.edit-title');
+                    editButton.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        const titleSpan = li.querySelector('.conversation-title');
+                        const currentTitle = titleSpan.textContent;
+                        const newTitle = prompt('新しいタイトルを入力してください:', currentTitle);
+                        
+                        if (newTitle && newTitle !== currentTitle) {
+                            updateConversationTitle(conv.id, newTitle);
+                        }
+                        
+                        // メニューを閉じる
+                        li.querySelector('.options-menu').classList.add('hidden');
+                    });
+
+                    // 削除ボタンのクリックイベント
+                    const deleteButton = li.querySelector('.delete-conv');
+                    deleteButton.addEventListener('click', async (e) => {
+                        e.stopPropagation();
+                        if (confirm('この会話を削除してもよろしいですか？')) {
+                            await deleteConversation(conv.id);
+                        }
+                        // メニューを閉じる
+                        li.querySelector('.options-menu').classList.add('hidden');
+                    });
+
                     list.appendChild(li);
                 });
             } catch (error) {
                 console.error('Error loading conversations:', error);
+            }
+        }
+
+        // タイトル更新の関数
+        async function updateConversationTitle(conversationId, newTitle) {
+            try {
+                const response = await fetch(`${BASE_URL}/conversations/${conversationId}/title`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        title: newTitle,
+                        manual_update: true
+                    })
+                });
+
+                if (response.ok) {
+                    // 会話リストを更新
+                    await loadConversations();
+                } else {
+                    console.error('Failed to update title');
+                }
+            } catch (error) {
+                console.error('Error updating title:', error);
             }
         }
 
@@ -424,6 +489,26 @@ ${message}
                     manual_update: true  // 手動更新フラグ
                 })
             });
+        }
+
+        // 会話削除の関数
+        async function deleteConversation(conversationId) {
+            try {
+                const response = await fetch(`${BASE_URL}/conversations/${conversationId}`, {
+                    method: 'DELETE'
+                });
+
+                if (response.ok) {
+                    // チャット画面をクリア
+                    document.getElementById('chat-messages').innerHTML = '';
+                    // 会話リストを更新
+                    await loadConversations();
+                } else {
+                    console.error('Failed to delete conversation');
+                }
+            } catch (error) {
+                console.error('Error deleting conversation:', error);
+            }
         }
     </script>
 </body>
