@@ -9,6 +9,11 @@ from dotenv import load_dotenv
 import os
 import tiktoken
 from fastapi.responses import FileResponse
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.ext.asyncio import create_async_engine
 
 load_dotenv()
 
@@ -117,11 +122,11 @@ def send_message(request: MessageRequest, db: Session = Depends(get_db)):
             detail="トークンが不足しています"
         )
     
-    # 入力トークンのみ先に消費
+    # 入力トークのみ先に消費
     usage.remaining_tokens -= input_tokens
     db.commit()
     
-    # 新しい会話を作成または既存の会話を取得
+    # 新しい会話を作成また既存の会話を取得
     conversation = db.query(database.Conversation).filter(
         database.Conversation.user_id == request.user_id
     ).order_by(database.Conversation.created_at.desc()).first()
@@ -219,7 +224,7 @@ def create_new_conversation(request: dict, db: Session = Depends(get_db)):
     """新しい会話を作成"""
     conversation = database.Conversation(
         user_id=request.get('user_id'),
-        title="新しいチャット"  # デフォルトタイトル
+        title="新しいチャット"  # 初期タイトル
     )
     db.add(conversation)
     db.commit()
@@ -229,7 +234,63 @@ def create_new_conversation(request: dict, db: Session = Depends(get_db)):
         "conversation_id": conversation.id
     }
 
+@app.put("/conversations/{conversation_id}/title")
+def update_conversation_title(
+    conversation_id: int, 
+    title_data: dict, 
+    db: Session = Depends(get_db)
+):
+    print(f"Updating title for conversation {conversation_id}")
+    print(f"Title data: {title_data}")
+    
+    try:
+        # 会話を取得
+        conversation = db.query(database.Conversation).filter(
+            database.Conversation.id == conversation_id
+        ).first()
+        
+        if not conversation:
+            print(f"Conversation {conversation_id} not found")
+            raise HTTPException(status_code=404, detail="Conversation not found")
+        
+        # manual_update フラグがある場合のみ、または
+        # タイトルが "新しいチャット" の場合のみ更新を許可
+        if title_data.get("manual_update", False) or conversation.title == "新しいチャット":
+            new_title = title_data.get("title")
+            print(f"New title: {new_title}")
+            conversation.title = new_title
+            
+            try:
+                db.commit()
+                print("Title updated successfully")
+            except Exception as commit_error:
+                print(f"Commit error: {str(commit_error)}")
+                db.rollback()
+                raise
+        else:
+            print("Title update skipped - not a manual update")
+            
+        return {"status": "success", "title": conversation.title}
+            
+    except SQLAlchemyError as e:
+        print(f"Database error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+    except Exception as e:
+        print(f"Unexpected error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Unexpected error: {str(e)}")
+
 port = int(os.getenv("PORT", 8000))
+
+# データベースの設定
+DATABASE_URL = "sqlite+aiosqlite:///./test.db"  # 既存のDBと同じパスを使用
+
+# 非同期ンジンとセッションの作成
+async_engine = create_async_engine(DATABASE_URL)
+async_session = sessionmaker(
+    async_engine,
+    class_=AsyncSession,
+    expire_on_commit=False
+)
 
 if __name__ == "__main__":
     import uvicorn

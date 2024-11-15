@@ -23,7 +23,7 @@
                 <!-- メッセージがここに追加されます -->
             </div>
             <div class="token-counter">
-                <span class="token-count-text">残りトークン: <span id="token-count">3000</span></span>
+                <span class="token-count-text">残りトークン: <span id="token-count">読み込み中...</span></span>
                 <button class="reset-button" onclick="resetTokens()">リセット</button>
             </div>
             <div class="chat-input">
@@ -139,9 +139,27 @@
                     
                     // トークンを消費
                     const tokenData = await consumeTokens(message);
-                    const conversationId = tokenData.conversation_id;  // 会話IDを取得
+                    const conversationId = tokenData.conversation_id;
+
+                    // 新しい会話の場合のみタイトルを設定（最初のメッセージの場合）
+                    const activeConversation = document.querySelector('.conversation-item.active');
+                    if (!activeConversation) {  // アクティブな会話がない = 新しい会話
+                        // 最初のメッセージを15文字以内に切り詰める
+                        const title = message.length > 15 ? message.substring(0, 15) + '...' : message;
+                        
+                        // タイトルを保存
+                        await fetch(`${BASE_URL}/conversations/${conversationId}/title`, {
+                            method: 'PUT',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                                title: title
+                            })
+                        });
+                    }
                     
-                    // Difyにメッセージを送信（会話IDを渡す）
+                    // Difyにメッセージを送信
                     await sendToDify(message, conversationId);
                     
                     // 会話リストを更新
@@ -161,7 +179,7 @@
         // トークン消費
         async function consumeTokens(message) {
             try {
-                const response = await fetch('/chat', {
+                const response = await fetch(`${BASE_URL}/chat`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -236,7 +254,7 @@
                     li.innerHTML = `
                         <div class="conversation-item" data-id="${conv.id}">
                             <span class="conversation-title">${conv.title}</span>
-                            <button class="more-options-btn">･･･</button>
+                            <button class="more-options-btn">⋯</button>
                             <div class="options-menu hidden">
                                 <div class="option-item edit-title">タイトルを編集</div>
                                 <div class="option-item delete-conv">削除</div>
@@ -268,9 +286,24 @@
             }
         }
 
-        // ページ読み込み時に会話履歴を取得
-        window.onload = function() {
-            loadConversations();
+        // 本日の残り使用可能トークン数を取得する関数
+        async function getRemainingDailyTokens() {
+            try {
+                const response = await fetch(`${BASE_URL}/tokens/test_user`);
+                const data = await response.json();
+                const tokenCountElement = document.getElementById('token-count');
+                if (tokenCountElement) {
+                    tokenCountElement.textContent = data.remaining_tokens;
+                }
+            } catch (error) {
+                console.error('Error getting remaining daily tokens:', error);
+            }
+        }
+
+        // ページ読み込み時の処理
+        window.onload = async function() {
+            await loadConversations();
+            await getRemainingDailyTokens();  // 本日の残り使用可能トークン数を取得
         };
 
         // 新しいチャットを開始する関数
@@ -308,7 +341,7 @@
             ? 'http://localhost:8000'
             : '';
 
-        // 既存のAPI呼び出しを修正
+        // 既存のAPI呼出しを修正
         async function consumeTokens(message) {
             try {
                 const response = await fetch(`${BASE_URL}/chat`, {
@@ -347,6 +380,51 @@
         }
 
         // 他のAPI呼び出しも同様に修正
+
+        // 新しい関数: AIを使ってタイトルを生成
+        async function generateTitle(message) {
+            try {
+                const response = await fetch('https://api.dify.ai/v1/chat-messages', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${apiKey}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        inputs: {},
+                        query: `以下の会話の内容を要約する形で15文字以内のタイトルにしてください：
+${message}
+
+注意点：
+以下の良い例のようにタイトルだけを出力してください。
+良い例：朝の挨拶
+悪い例：はい！シャシャシャ！\n\n「朝の挨拶」\n\nこれでどうだ？短くてバッチリだろう！`,
+                        user: "test_user",
+                        response_mode: "blocking"
+                    })
+                });
+
+                const data = await response.json();
+                return data.answer || 'New Chat';  // デフォルトタイトル
+            } catch (error) {
+                console.error('Error generating title:', error);
+                return 'New Chat';  // エラー時のデフォルトタイトル
+            }
+        }
+
+        // タイトル手動更新時の処理（既存のタイトル編集機能がある場合）
+        async function updateTitleManually(conversationId, newTitle) {
+            await fetch(`${BASE_URL}/conversations/${conversationId}/title`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    title: newTitle,
+                    manual_update: true  // 手動更新フラグ
+                })
+            });
+        }
     </script>
 </body>
 </html>
