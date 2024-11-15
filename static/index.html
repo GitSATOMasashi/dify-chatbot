@@ -262,11 +262,16 @@
                 const conversations = await response.json();
                 
                 const list = document.getElementById('conversation-list');
+                const activeId = list.querySelector('.active')?.dataset.id;  // 現在のアクティブなIDを保存
+                
                 list.innerHTML = '';
                 
                 conversations.forEach(conv => {
                     const li = document.createElement('li');
                     li.className = 'conversation-item';
+                    if (conv.id.toString() === activeId) {
+                        li.classList.add('active');  // アクティブ状態を復元
+                    }
                     li.innerHTML = `
                         <div class="conversation-item" data-id="${conv.id}">
                             <span class="conversation-title">${conv.title}</span>
@@ -353,6 +358,17 @@
         // 特定の会話のメッセージを読み込む
         async function loadMessages(conversationId) {
             try {
+                // アクティブ状態を更新
+                const allConversations = document.querySelectorAll('.conversation-item');
+                allConversations.forEach(conv => conv.classList.remove('active'));
+                
+                // 該当する会話項目をアクティブに
+                const activeConv = document.querySelector(`.conversation-item[data-id="${conversationId}"]`);
+                if (activeConv) {
+                    activeConv.classList.add('active');
+                }
+
+                // 既存のメッセージ読み込み処理
                 const response = await fetch(`/conversations/${conversationId}/messages`);
                 const messages = await response.json();
                 
