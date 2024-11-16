@@ -76,6 +76,12 @@ body {
     padding: 8px 12px;
     cursor: pointer;
     position: relative;
+    border-left: 3px solid transparent;
+}
+
+.conversation-list .conversation-item.active {
+    background-color: rgba(255, 255, 255, 0.1);
+    border-left-color: #4a9eff;
 }
 
 .conversation-title-container {

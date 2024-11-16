@@ -292,8 +292,9 @@
         // 会話履歴を取得
         async function loadConversations() {
             try {
-                const response = await fetch(`/conversations/test_user`);
+                const response = await fetch(`${BASE_URL}/conversations/test_user`);
                 const conversations = await response.json();
+                console.log('Loaded conversations:', conversations);
                 
                 const list = document.getElementById('conversation-list');
                 const activeId = list.querySelector('.active')?.dataset.id;  // 現在のアクティブなIDを保存
@@ -318,6 +319,7 @@
                 conversations.forEach(conv => {
                     const li = document.createElement('li');
                     li.className = 'conversation-item';
+                    li.dataset.id = conv.id;  // data-id属性を設定
                     
                     // HTMLの構造を修正
                     li.innerHTML = `
@@ -448,6 +450,9 @@
                 // セクションをリストに追加
                 list.appendChild(pinnedSection);
                 list.appendChild(normalSection);
+
+                li.addEventListener('click', () => loadMessages(conv.id));
+                list.appendChild(li);
                 
             } catch (error) {
                 console.error('Error loading conversations:', error);
@@ -482,16 +487,30 @@
         // 特定の会話のメッセージを読み込む
         async function loadMessages(conversationId) {
             try {
+                // conversationIdの値を確認
+                console.log('Loading messages with ID:', conversationId);
+                
                 // アクティブ状態を更新
                 const allConversations = document.querySelectorAll('.conversation-item');
-                allConversations.forEach(conv => conv.classList.remove('active'));
+                console.log('Found conversations:', allConversations.length);
+                
+                allConversations.forEach(conv => {
+                    conv.classList.remove('active');
+                    console.log('Removed active class from:', conv.getAttribute('data-id'));
+                });
                 
                 // 該当する会話項目をアクティブに
                 const activeConv = document.querySelector(`.conversation-item[data-id="${conversationId}"]`);
+                
+                // 要素の取得状況を確認
+                console.log('Conversation elements found:', allConversations.length);
+                console.log('Active element query:', `.conversation-item[data-id="${conversationId}"]`);
+                
                 if (activeConv) {
                     activeConv.classList.add('active');
+                    console.log('Added active class to:', conversationId);
                 }
-
+                
                 // 既存のメッセージ読み込み処理
                 const response = await fetch(`/conversations/${conversationId}/messages`);
                 const messages = await response.json();
