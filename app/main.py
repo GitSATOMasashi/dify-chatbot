@@ -268,7 +268,7 @@ def create_new_conversation(request: dict, db: Session = Depends(get_db)):
     """新しい会話を作成"""
     conversation = database.Conversation(
         user_id=request.get('user_id'),
-        title="新しいチャット"  # 初期タイトル
+        title="新しいトーク"  # 初期タイトル
     )
     db.add(conversation)
     db.commit()

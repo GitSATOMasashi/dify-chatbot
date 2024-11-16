@@ -512,7 +512,7 @@ async function startNewChat() {
         
     } catch (error) {
         console.error('Error starting new chat:', error);
-        addMessage('新しいチャットの作成に失敗しました', 'system');
+        addMessage('新しいトークの作成に失敗しました', 'system');
     }
 }
 
