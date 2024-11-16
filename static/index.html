@@ -9,7 +9,7 @@
     <div class="container">
         <div class="sidebar">
             <div class="sidebar-header">
-                <button onclick="startNewChat()" class="new-chat-btn">新しいチャット</button>
+                <button onclick="startNewChat()" class="new-chat-btn">新しいトーク</button>
             </div>
             <div class="conversation-list-container">
                 <ul class="conversation-list" id="conversation-list">
@@ -529,14 +529,6 @@
 
         // 新しいチャットを開始する関数
         async function startNewChat() {
-            // チャット画面をクリア
-            const chatMessages = document.getElementById('chat-messages');
-            chatMessages.innerHTML = '';
-            
-            // メッセージ入力欄をクリア
-            document.getElementById('message-input').value = '';
-            
-            // 新しい会話を作成
             try {
                 const response = await fetch('/conversations/new', {
                     method: 'POST',
@@ -544,16 +536,22 @@
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({
-                        user_id: 'test_user'
+                        user_id: 'test_user',
+                        title: '新しいトーク'
                     })
                 });
                 
                 if (response.ok) {
+                    const chatMessages = document.getElementById('chat-messages');
+                    chatMessages.innerHTML = '';
+                    // メッセージ入力欄をクリア
+                    document.getElementById('message-input').value = '';
+                    
                     // 会話リストを更新
                     await loadConversations();
                 }
             } catch (error) {
-                console.error('Error creating new conversation:', error);
+                console.error('Error creating new talk:', error);
             }
         }
 
