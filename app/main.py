@@ -16,6 +16,8 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.asyncio import create_async_engine
 import logging
 from typing import Optional
+from fastapi.responses import JSONResponse
+import traceback  # スタックトレース用
 
 load_dotenv()
 
@@ -158,7 +160,10 @@ async def chat(request: Request, db: Session = Depends(get_db)):
         # 必要なトークン数をチェック
         if usage.remaining_tokens < required_tokens:
             logger.warning(f"Insufficient tokens for user {message_request.user_id}")
-            raise HTTPException(status_code=403, detail="トークンが不足しています")
+            return JSONResponse(
+                status_code=403,
+                content={"detail": "Insufficient tokens. Please reset your tokens."}
+            )
         
         # トークンを消費
         usage.remaining_tokens -= input_tokens
@@ -197,7 +202,13 @@ async def chat(request: Request, db: Session = Depends(get_db)):
         
     except Exception as e:
         logger.error(f"Error in chat endpoint: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(traceback.format_exc())  # スタックトレースを記録
+        
+        # エラーレスポンスを返す
+        return JSONResponse(
+            status_code=500,
+            content={"detail": f"Internal server error: {str(e)}"}
+        )
 
 @app.post("/chat/response")
 async def record_response(
