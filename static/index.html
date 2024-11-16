@@ -588,8 +588,21 @@
 
         // ページ読み込み時の処理
         window.onload = async function() {
-            await loadConversations();
+            await loadConversations();  // 会話リストを読み込む
             await getRemainingDailyTokens();  // 本日の残り使用可能トークン数を取得
+            
+            // 会話リストから最新の会話を取得して表示
+            const conversations = document.querySelectorAll('.conversation-item');
+            if (conversations.length > 0) {
+                // 最新の会話を取得（最初の要素）
+                const latestConversation = conversations[0];
+                const conversationId = latestConversation.dataset.id;
+                await loadMessages(conversationId);  // 最新の会話を表示
+                latestConversation.classList.add('active');  // アクティブ状態にする
+            } else {
+                // 会話がない場合は新しいトークを開始
+                await startNewChat();
+            }
         };
 
         // 新しいチャットを開始する関数
