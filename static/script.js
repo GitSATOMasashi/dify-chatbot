@@ -583,3 +583,35 @@ function setupConversationOptions() {
         });
     });
 }
+
+// サポート選択UIの表示
+async function showSupportSelection() {
+    const chatMessages = document.getElementById('chat-messages');
+    chatMessages.innerHTML = '';  // クリア
+    
+    // 利用可能なボットを取得
+    const response = await fetch('/dify/bots');
+    const bots = await response.json();
+    
+    // 選択UIを表示
+    bots.forEach(bot => {
+        const botElement = document.createElement('div');
+        botElement.className = 'support-option';
+        botElement.innerHTML = `
+            <h3>${bot.name}</h3>
+            <p>${bot.description}</p>
+            <button onclick="selectBot('${bot.id}')">選択</button>
+        `;
+        chatMessages.appendChild(botElement);
+    });
+}
+
+// ボット選択時の処理
+async function selectBot(botId) {
+    await fetch(`/dify/select/${botId}`, {
+        method: 'POST'
+    });
+    
+    // 選択後、通常のチャットUIに戻る
+    startNewChat();
+}

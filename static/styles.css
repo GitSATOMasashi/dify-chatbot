@@ -92,6 +92,7 @@ body {
 .conversation-title {
     display: -webkit-box;
     -webkit-line-clamp: 2;
+    line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
     height: 40px;
@@ -399,4 +400,154 @@ button,
 
 .pin-animation {
     animation: pinAnimation 0.5s ease;
-} 
+}
+
+.support-option {
+    padding: 20px;
+    margin: 10px 0;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.support-option:hover {
+    background-color: #f5f5f5;
+    transform: translateY(-2px);
+}
+
+/* サポート選択ダイアログのスタイル */
+.support-dialog {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.6);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.support-dialog-content {
+    background: white;
+    padding: 2rem;
+    border-radius: 12px;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.1);
+    max-width: 400px;
+    width: 90%;
+}
+
+.support-dialog h3 {
+    margin: 0 0 1.5rem;
+    text-align: center;
+    color: #333;
+    font-size: 1.2rem;
+    font-weight: 500;
+}
+
+.support-options {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.support-options button {
+    padding: 0.875rem 1.5rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    background: white;
+    color: #374151;
+    cursor: pointer;
+    font-size: 0.95rem;
+    transition: all 0.2s ease;
+    text-align: left;
+    position: relative;
+}
+
+.support-options button:hover {
+    background: #f9fafb;
+    border-color: #d1d5db;
+    transform: translateY(-1px);
+}
+
+.support-options button:active {
+    transform: translateY(0);
+}
+
+.support-options button::after {
+    content: "→";
+    position: absolute;
+    right: 1.5rem;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.support-options button:hover::after {
+    opacity: 1;
+}
+
+.container{
+    max-width: none !important;
+    padding: 0 !important;
+}
+
+/* サポートボタンのスタイル */
+.support-button {
+    position: relative;
+    width: 100%;
+    padding: 1rem 1.5rem;
+    text-align: left;
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    font-size: 0.95rem;
+    color: #374151;
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+.support-button:hover {
+    background: #f8fafc;
+    border-color: #d1d5db;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.support-button:active {
+    transform: translateY(0);
+}
+
+/* 矢印のスタイル */
+.support-button .arrow {
+    position: absolute;
+    right: 1.5rem;
+    opacity: 0;
+    transition: all 0.2s ease;
+}
+
+.support-button:hover .arrow {
+    opacity: 1;
+    transform: translateX(4px);
+}
+
+/* モーダル全体のスタイル */
+.modal-content {
+    background: white;
+    border: none;
+    border-radius: 16px !important;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.1);
+}
+
+.modal-body {
+    padding: 2rem !important;
+}
+
+.modal-title {
+    font-size: 1.25rem;
+    font-weight: 500;
+    color: #1a202c;
+    text-align: center;
+    margin-bottom: 1.5rem;
+}

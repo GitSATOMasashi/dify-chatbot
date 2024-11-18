@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException, Body, Request
+from fastapi import FastAPI, Depends, HTTPException, Body, Request, WebSocket, status
 from sqlalchemy.orm import Session
 from . import database
 from .database import Base, engine, SessionLocal  # ここでBaseとengineをインポート
@@ -7,9 +7,13 @@ from pydantic import BaseModel
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
-import os
+import json
 import tiktoken
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import JSONResponse
+import httpx
+import os
+from fastapi.exceptions import RequestValidationError
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -17,12 +21,10 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.asyncio import create_async_engine
 import logging
 from typing import Optional
-from fastapi.responses import JSONResponse
 import traceback  # スタックトレース用
 from .routers import support  # この行を追加
 
 load_dotenv()
-
 app = FastAPI()
 
 # CORSの設定
@@ -402,8 +404,98 @@ async def toggle_pin(conversation_id: int, db: Session = Depends(get_db)):
         db.rollback()
         print(f"Error in toggle_pin: {str(e)}")  # デバッグ用
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/")
+async def get():
+    with open("static/index.html") as f:
+        return HTMLResponse(f.read())
+
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    await websocket.accept()
+    
+    # 最初にサポート選択画面を送信
+    await websocket.send_text(json.dumps({
+        "type": "support_select",
+        "options": [
+            {"id": "general", "name": "一般的な質問"},
+            {"id": "technical", "name": "技術的な質問"},
+            {"id": "other", "name": "その他"}
+        ]
+    }))
+    
+    while True:
+        try:
+            data = await websocket.receive_json()
+            
+            if data.get("type") == "support_select":
+                # サポートタイプが選択された
+                support_type = data.get("selected")
+                await websocket.send_text(json.dumps({
+                    "type": "message",
+                    "text": f"{support_type}のサポートを開始します。ご質問をどうぞ。"
+                }))
+                
+            elif data.get("type") == "message":
+                # 通常のメッセージ
+                message = data.get("text", "")
+                
+                # Dify APIを呼び出し
+                async with httpx.AsyncClient() as client:
+                    response = await client.post(
+                        "https://api.dify.ai/v1/chat-messages",
+                        headers={
+                            "Authorization": f"Bearer {os.getenv('DIFY_API_KEY')}",
+                            "Content-Type": "application/json"
+                        },
+                        json={
+                            "inputs": {},
+                            "query": message,
+                            "response_mode": "blocking"
+                        }
+                    )
+                    
+                    if response.status_code == 200:
+                        bot_message = response.json()["answer"]
+                    else:
+                        bot_message = f"エラーが発生しました: {response.status_code}"
+                    
+                await websocket.send_text(json.dumps({
+                    "type": "message", 
+                    "text": bot_message
+                }))
+                
+        except Exception as e:
+            print(f"Error: {e}")
+            break
+
+async def call_mistral(message: str) -> str:
+    """Mistral APIを呼び出す関数"""
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                "https://api.mistral.ai/v1/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {os.getenv('MISTRAL_API_KEY')}",
+                    "Content-Type": "application/json"
+                },
+                json={
+                    "model": "mistral-tiny",
+                    "messages": [{"role": "user", "content": message}]
+                }
+            )
+            
+            if response.status_code == 200:
+                return response.json()["choices"][0]["message"]["content"]
+            else:
+                return f"エラーが発生しました: {response.status_code}"
+                
+    except Exception as e:
+        return f"エラーが発生しました: {str(e)}"
+
 port = int(os.getenv("PORT", 8000))
 
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=port)
+

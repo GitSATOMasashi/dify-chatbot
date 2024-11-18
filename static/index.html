@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <title>AIアシスタント - スキルプラス</title>
     <link rel="stylesheet" href="/static/styles.css">
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+        
 </head>
 <body>
     <div class="container">
@@ -35,6 +38,8 @@
 
     <script>
         let apiKey = '';  // APIキーを保持する変数
+        let ws = null;
+        const user_id = Date.now().toString(); // ユニークなユーザーIDを生成
 
         // 初期化時にAPIキーを取得
         async function initialize() {
@@ -605,28 +610,73 @@
             }
         };
 
+        // サポート選択ダイアログを表示する関数
+        function showSupportDialog() {
+            return new Promise((resolve) => {
+                const dialog = document.createElement('div');
+                dialog.className = 'support-dialog';
+                dialog.innerHTML = `
+                    <div class="support-dialog-content">
+                        <h3>どのようなサポートが必要ですか？</h3>
+                        <div class="support-options">
+                            <button data-type="general">一般的な質問</button>
+                            <button data-type="technical">技術的な質問</button>
+                            <button data-type="other">その他</button>
+                        </div>
+                    </div>
+                `;
+                
+                // ボタンのクリックイベントを設定
+                dialog.querySelectorAll('button').forEach(button => {
+                    button.onclick = () => {
+                        dialog.remove();
+                        resolve(button.dataset.type);
+                    };
+                });
+                
+                document.body.appendChild(dialog);
+            });
+        }
+
         // 新しいチャットを開始する関数
         async function startNewChat() {
             try {
-                const response = await fetch('/conversations/new', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        user_id: 'test_user',
-                        title: '新しいトーク'
-                    })
+                // モーダルを表示して選択を待つ
+                const modal = new bootstrap.Modal(document.getElementById('supportModal'));
+                modal.show();
+
+                // サポートタイプの選択を待つ
+                const supportType = await new Promise((resolve) => {
+                    document.querySelectorAll('#supportModal [data-support-type]').forEach(button => {
+                        button.onclick = () => {
+                            modal.hide();
+                            resolve(button.dataset.supportType);
+                        };
+                    });
                 });
-                
-                if (response.ok) {
-                    const chatMessages = document.getElementById('chat-messages');
-                    chatMessages.innerHTML = '';
-                    // メッセージ入力欄をクリア
-                    document.getElementById('message-input').value = '';
-                    
-                    // 会話リストを更新
-                    await loadConversations();
+
+                if (supportType) {
+                    const response = await fetch('/conversations/new', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            user_id: 'test_user',
+                            title: '新しいトーク',
+                            support_type: supportType
+                        })
+                    });
+
+                    if (response.ok) {
+                        // チャット画面をクリア
+                        document.getElementById('chat-messages').innerHTML = '';
+                        // メッセージ入力欄をクリア
+                        document.getElementById('message-input').value = '';
+                        
+                        // 会話リストを更新
+                        await loadConversations();
+                    }
                 }
             } catch (error) {
                 console.error('Error creating new talk:', error);
@@ -727,6 +777,48 @@
             // スクロールの高さに合わせて高さを設定
             this.style.height = (this.scrollHeight) + 'px';
         });
+
+        function connect() {
+            ws = new WebSocket(`ws://${location.host}/ws/${user_id}`);
+            
+            ws.onmessage = function(event) {
+                const response = JSON.parse(event.data);
+                appendMessage(response.content, 'bot');
+            };
+
+            ws.onclose = function() {
+                console.log('WebSocket接続が切断されました');
+                setTimeout(connect, 1000); // 再接続を試みる
+            };
+        }
     </script>
+
+    <!-- サポート選択モーダル -->
+    <div class="modal fade" id="supportModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content" style="border: none; border-radius: 16px; box-shadow: 0 4px 24px rgba(0, 0, 0, 0.1);">
+                <div class="modal-body p-4">
+                    <h5 class="modal-title text-center mb-4" style="font-size: 1.25rem; font-weight: 500;">どのようなサポートが必要ですか？</h5>
+                    <div class="d-grid gap-3">
+                        <button class="support-button" data-support-type="general">
+                            一般的な質問
+                            <span class="arrow">→</span>
+                        </button>
+                        <button class="support-button" data-support-type="technical">
+                            技術的な質問
+                            <span class="arrow">→</span>
+                        </button>
+                        <button class="support-button" data-support-type="other">
+                            その他
+                            <span class="arrow">→</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/static/script.js"></script>
 </body>
 </html>
