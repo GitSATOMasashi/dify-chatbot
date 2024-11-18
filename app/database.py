@@ -1,22 +1,15 @@
-from sqlalchemy import Column, Integer, String, DateTime, Boolean
+from sqlalchemy import create_engine, Column, Integer, String, DateTime, Boolean
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy import create_engine
 from datetime import datetime
-import os
 
-# データベースのURL
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./test.db")
+SQLALCHEMY_DATABASE_URL = "sqlite:///./sql_app.db"
 
-# エンジンの作成
 engine = create_engine(
-    DATABASE_URL, connect_args={"check_same_thread": False}
+    SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
 )
-
-# セッションの作成
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-# Baseクラスの作成
 Base = declarative_base()
 
 class Conversation(Base):

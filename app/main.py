@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Depends, HTTPException, Body, Request
 from sqlalchemy.orm import Session
 from . import database
+from .database import Base, engine, SessionLocal  # ここでBaseとengineをインポート
 from datetime import datetime
 from pydantic import BaseModel
 from fastapi.staticfiles import StaticFiles
@@ -18,6 +19,7 @@ import logging
 from typing import Optional
 from fastapi.responses import JSONResponse
 import traceback  # スタックトレース用
+from .routers import support  # この行を追加
 
 load_dotenv()
 
@@ -34,6 +36,23 @@ app.add_middleware(
 
 # 静的ファイルの提供
 app.mount("/static", StaticFiles(directory="static"), name="static")
+
+# 同期的なデータベースの初期化
+Base.metadata.create_all(bind=engine) # 既存のengineを使用
+
+# データベースの設定
+DATABASE_URL = "sqlite+aiosqlite:///./test.db"  # 既存のDBと同じパスを使用
+
+# 非同期ンジンとセッションの作成
+async_engine = create_async_engine(DATABASE_URL)
+async_session = sessionmaker(
+    async_engine,
+    class_=AsyncSession,
+    expire_on_commit=False
+)
+
+# ルーターの追加
+app.include_router(support.router)
 
 # ルートパスでindex.htmlを提供
 @app.get("/")
@@ -384,17 +403,6 @@ async def toggle_pin(conversation_id: int, db: Session = Depends(get_db)):
         print(f"Error in toggle_pin: {str(e)}")  # デバッグ用
         raise HTTPException(status_code=500, detail=str(e))
 port = int(os.getenv("PORT", 8000))
-
-# データベースの設定
-DATABASE_URL = "sqlite+aiosqlite:///./test.db"  # 既存のDBと同じパスを使用
-
-# 非同期ンジンとセッションの作成
-async_engine = create_async_engine(DATABASE_URL)
-async_session = sessionmaker(
-    async_engine,
-    class_=AsyncSession,
-    expire_on_commit=False
-)
 
 if __name__ == "__main__":
     import uvicorn
