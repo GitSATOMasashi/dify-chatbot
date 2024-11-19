@@ -21,6 +21,10 @@ class Conversation(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     is_pinned = Column(Boolean, default=False)
 
+    # 新しく追加するカラム
+    dify_conversation_id = Column(String, nullable=True)  # Difyから返されるID
+    mode = Column(String, nullable=True, default='default')  # 使用するボットのモード
+
 class Message(Base):
     __tablename__ = "messages"
 
