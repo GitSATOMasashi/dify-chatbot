@@ -489,6 +489,8 @@ async function deleteConversation(conversationId) {
 // 新しいチャットを開始する関数
 async function startNewChat() {
     try {
+        console.log('Started new chat');  //「新しいトーク」を押すと表示
+
         // チャット画面をクリア
         const messagesDiv = document.getElementById('chat-messages');
         messagesDiv.innerHTML = '';
@@ -507,8 +509,6 @@ async function startNewChat() {
         items.forEach(item => {
             item.classList.remove('active');
         });
-        
-        console.log('Started new chat');
         
     } catch (error) {
         console.error('Error starting new chat:', error);

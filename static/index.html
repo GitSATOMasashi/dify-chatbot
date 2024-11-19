@@ -641,14 +641,20 @@
         // 新しいチャットを開始する関数
         async function startNewChat() {
             try {
+                console.log('=== Starting New Chat ===');  //「新しいトーク」を押すと表示
+
                 // モーダルを表示して選択を待つ
                 const modal = new bootstrap.Modal(document.getElementById('supportModal'));
+                console.log('Showing modal');  // モーダルが表れると表示
                 modal.show();
 
                 // サポートタイプの選択を待つ
                 const supportType = await new Promise((resolve) => {
                     document.querySelectorAll('#supportModal [data-support-type]').forEach(button => {
                         button.onclick = () => {
+                            console.log('=== Support Selection ===');
+                            console.log('Selected Type:', button.dataset.supportType);
+                            
                             modal.hide();
                             resolve(button.dataset.supportType);
                         };
