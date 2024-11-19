@@ -23,6 +23,7 @@ import logging
 from typing import Optional
 import traceback  # スタックトレース用
 from .routers import support  # この行を追加
+from .services.dify.client import DifyClient
 
 load_dotenv()
 app = FastAPI()
@@ -492,6 +493,17 @@ async def call_mistral(message: str) -> str:
                 
     except Exception as e:
         return f"エラーが発生しました: {str(e)}"
+
+@app.post("/test/dify/{mode}")
+async def test_dify(mode: str, message: str):
+    """動作確認用のエンドポイント"""
+    client = DifyClient(mode)
+    response = await client.send_message(message)
+    return response
+
+@app.get("/test")
+async def test_endpoint():
+    return {"message": "Server is running"}
 
 port = int(os.getenv("PORT", 8000))
 
